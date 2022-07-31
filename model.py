@@ -51,10 +51,20 @@ class PictureFabric:
                                   platformname='Sentinel-2',
                                   processinglevel='Level-2A',
                                   cloudcoverpercentage=(clouds[0], clouds[1]))
+        pictures = []
         for picture in products:
             preview = f'192.168.2.137:1060/preview/{picture}'
-            result = {picture: [preview, products[picture]['generationdate']]}
-        print(result)
+            download = f'192.168.2.137:1060/download/{picture}'
+            # result = [products[picture]['generationdate'], products[picture]['title'],
+            #           picture, preview, download]
+            pictures.append(
+                PictureModel(date=products[picture]['generationdate'], name=products[picture]['title'],
+                             uuid=picture, prev=preview, download=download)
+            )
+        return pictures
+
+
+
 
 
     def create_picture(self, **kwargs) -> PictureModel:
