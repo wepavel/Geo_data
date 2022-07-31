@@ -1,4 +1,4 @@
-from flask import Flask,request,redirect,Response
+from flask import Flask, request, redirect, Response
 import requests
 from sentinelsat.sentinel import SentinelAPI
 import flask
@@ -9,6 +9,7 @@ import geopandas as gpd
 
 
 app = Flask(__name__)
+
 
 @app.route('/')
 def index():
@@ -33,13 +34,7 @@ def prev_proxy(uuid):
 
 @app.route('/download/<path:uuid>', methods=['GET'])
 def download_proxy(uuid):
-    # uuid, title.safe, granuleidentifier, datastripidentifier
-    #
-    # cur_uuid = gdf.uuid[index]
-    # products[picture][uuid]
-    # ident = gdf.identifier[index]
-    # granule = gdf.granuleidentifier[index]
-    # datastrip = gdf.datastripidentifier[index]
+
 
     # https://scihub.copernicus.eu/dhus/odata/v1/Products('b246fb51-6c43-454a-bf49-385f5688bf63')/Nodes('S2B_MSIL2A_20220205T084039_N0400_R064_T37UCA_20220205T105847.SAFE')/Nodes('GRANULE')/Nodes('L2A_T37UCA_A025687_20220205T084305')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes
 
@@ -58,3 +53,4 @@ def check_regions():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=1060)
+

@@ -52,9 +52,37 @@ class PictureFabric:
                                   processinglevel='Level-2A',
                                   cloudcoverpercentage=(clouds[0], clouds[1]))
         pictures = []
+
+        # uuid, title.safe, granuleidentifier, datastripidentifier
+
+
+
+
+        # for i in range(2, 5):
+        #     path = []
+        #     path.append(cur_uuid)
+        #     path.append(ident)
+        #     path.append(f"{parts2[3]}_{parts1[5]}_{parts3[7]}_{parts2[7]}")
+        #     path.append(f"{parts1[5]}_{parts1[2]}_B0{i}_10m.jp2")
+
+
         for picture in products:
+
+            ident = products[picture]['identifier']
+            granule = products[picture]['granuleidentifier']
+            datastrip = products[picture]['datastripidentifier']
+
+            parts1 = ident.split('_')
+            parts2 = datastrip.split('_')
+            parts2[7] = parts2[7].replace(parts2[7][0], '')
+            parts3 = granule.split('_')
+
+
             preview = f'192.168.2.137:1060/preview/{picture}'
-            download = f'192.168.2.137:1060/download/{picture}'
+            download = f"/download/{picture}/{ident}/{parts2[3]}_{parts1[5]}_{parts3[7]}_{parts2[7]}/\
+            {parts1[5]}_{parts1[2]}_B00_10m.jp2"
+
+
             # result = [products[picture]['generationdate'], products[picture]['title'],
             #           picture, preview, download]
             pictures.append(
