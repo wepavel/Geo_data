@@ -79,8 +79,8 @@ class PictureFabric:
 
 
             preview = f'192.168.2.137:1060/preview/{picture}'
-            download = f"/download/{picture}/{ident}/{parts2[3]}_{parts1[5]}_{parts3[7]}_{parts2[7]}/\
-            {parts1[5]}_{parts1[2]}_B00_10m.jp2"
+            download = f"192.168.2.137:1060/download/{picture}/{ident}/{parts2[3]}_\
+{parts1[5]}_{parts3[7]}_{parts2[7]}/{parts1[5]}_{parts1[2]}"
 
 
             # result = [products[picture]['generationdate'], products[picture]['title'],

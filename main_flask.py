@@ -30,15 +30,21 @@ def prev_proxy(uuid):
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
         response = Response(resp.content, resp.status_code, headers)
-    return response
-
-@app.route('/download/<path:uuid>', methods=['GET'])
-def download_proxy(uuid):
+        return response
 
 
+@app.route('/download/<path:uuid>/<path:ident>/<path:some_ident>/<path:img_ident>', methods=['GET'])
+def download_proxy(uuid, ident, some_ident, img_ident):
+    print(uuid, ident, some_ident, img_ident)
+
+    mydict = {'uuid': uuid,
+              'ident': ident,
+              'some_ident': some_ident,
+              'img_ident': img_ident}
     # https://scihub.copernicus.eu/dhus/odata/v1/Products('b246fb51-6c43-454a-bf49-385f5688bf63')/Nodes('S2B_MSIL2A_20220205T084039_N0400_R064_T37UCA_20220205T105847.SAFE')/Nodes('GRANULE')/Nodes('L2A_T37UCA_A025687_20220205T084305')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes
 
-    pass
+    return flask.jsonify(mydict)
+
 
 @app.post('/regions')
 def check_regions():
