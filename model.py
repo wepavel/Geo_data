@@ -1,5 +1,6 @@
 from sentinelsat.sentinel import SentinelAPI
 import geopandas as gpd
+from flask import Flask, request, redirect, Response
 
 
 class PictureModel:
@@ -41,7 +42,6 @@ class PictureFabric:
         footprint = None
         for i in boundary['geometry']:
             footprint = i
-
 
         # print(kwargs['features'][0]['properties']['date'])
         date = kwargs['features'][0]['properties']['date']
@@ -91,7 +91,17 @@ class PictureFabric:
             )
         return pictures
 
+    def down_url(self, uuid, ident, some_ident, img_ident):
 
+        path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
+/Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/$value"
+
+        resp = self.api.session.get(f'{path}')
+
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
+        response = Response(resp.content, resp.status_code, headers)
+        return response
 
 
 

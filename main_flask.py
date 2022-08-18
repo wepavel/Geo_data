@@ -2,11 +2,13 @@ from flask import Flask, request, redirect, Response
 import requests
 from sentinelsat.sentinel import SentinelAPI
 import flask
-from flask import Flask
+import os
 
 from model import PictureFabric
-import geopandas as gpd
+# import geopandas as gpd
 
+import osgeo
+from osgeo import gdal
 
 app = Flask(__name__)
 
@@ -37,14 +39,15 @@ def prev_proxy(uuid):
 def download_proxy(uuid, ident, some_ident, img_ident):
     print(uuid, ident, some_ident, img_ident)
 
-    mydict = {'uuid': uuid,
-              'ident': ident,
-              'some_ident': some_ident,
-              'img_ident': img_ident}
+    url = PictureFabric().down_url(uuid, ident, some_ident, img_ident)
+    photo = url.data
+    # url.data
+
     # https://scihub.copernicus.eu/dhus/odata/v1/Products('b246fb51-6c43-454a-bf49-385f5688bf63')/Nodes('S2B_MSIL2A_20220205T084039_N0400_R064_T37UCA_20220205T105847.SAFE')/Nodes('GRANULE')/Nodes('L2A_T37UCA_A025687_20220205T084305')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes
 
-    return flask.jsonify(mydict)
-
+    # return flask.jsonify(url)
+    ds = gdal.Open(photo)
+    return ds
 
 @app.post('/regions')
 def check_regions():
