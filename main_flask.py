@@ -22,16 +22,8 @@ def index():
 def prev_proxy(uuid):
     if request.method == 'GET':
 
-        user = 'wepaul'
-        password = 'Sporopedu123'
-        api = SentinelAPI(user, password, 'https://scihub.copernicus.eu/dhus')
-        path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Products('Quicklook')/$value"
+        response = PictureFabric().get_preview(uuid)
 
-        resp = api.session.get(f'{path}')
-
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
-        response = Response(resp.content, resp.status_code, headers)
         return response
 
 
@@ -41,13 +33,25 @@ def download_proxy(uuid, ident, some_ident, img_ident):
 
     url = PictureFabric().down_url(uuid, ident, some_ident, img_ident)
     photo = url.data
-    # url.data
 
-    # https://scihub.copernicus.eu/dhus/odata/v1/Products('b246fb51-6c43-454a-bf49-385f5688bf63')/Nodes('S2B_MSIL2A_20220205T084039_N0400_R064_T37UCA_20220205T105847.SAFE')/Nodes('GRANULE')/Nodes('L2A_T37UCA_A025687_20220205T084305')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes
+    gdal.FileFromMemBuffer('/vsimem/inmem.vrt', photo)
+    ds = gdal.Open('/vsimem/inmem.vrt')
 
-    # return flask.jsonify(url)
-    ds = gdal.Open(photo)
-    return ds
+    # print(ds.ReadAsArray().shape)
+    # ds = None
+    ds1 = gdal.Translate(f'/vsimem/{uuid}.tif', ds)
+
+    data_array = ds1.GetMetadata()
+
+    url.data = data_array
+    url.response = data_array
+    # gdal.GetDriverByName('tiff').CreateCopy(f'/vsimem/{uuid}.png', ds)
+    ds = None
+    gdal.Unlink('/vsimem/inmem.vrt')
+    gdal.Unlink(f'/vsimem/{uuid}.tif')
+    # ds = gdal.Open(photo)
+
+    return url
 
 @app.post('/regions')
 def check_regions():
