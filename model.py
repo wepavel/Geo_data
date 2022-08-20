@@ -1,6 +1,8 @@
 from sentinelsat.sentinel import SentinelAPI
 import geopandas as gpd
 from flask import Flask, request, redirect, Response
+import os
+from osgeo import gdal
 
 
 class PictureModel:
@@ -33,7 +35,6 @@ class PictureFabric:
         password = 'Sporopedu123'
         self.api = SentinelAPI(user, password, 'https://scihub.copernicus.eu/dhus')
 
-
     def get_pictures(self, **kwargs: object) -> list[PictureModel]:
 
         # boundary = gpd.read_file(Json_dir)
@@ -53,19 +54,6 @@ class PictureFabric:
                                   cloudcoverpercentage=(clouds[0], clouds[1]))
         pictures = []
 
-        # uuid, title.safe, granuleidentifier, datastripidentifier
-
-
-
-
-        # for i in range(2, 5):
-        #     path = []
-        #     path.append(cur_uuid)
-        #     path.append(ident)
-        #     path.append(f"{parts2[3]}_{parts1[5]}_{parts3[7]}_{parts2[7]}")
-        #     path.append(f"{parts1[5]}_{parts1[2]}_B0{i}_10m.jp2")
-
-
         for picture in products:
 
             ident = products[picture]['identifier']
@@ -77,9 +65,8 @@ class PictureFabric:
             parts2[7] = parts2[7].replace(parts2[7][0], '')
             parts3 = granule.split('_')
 
-
-            preview = f'192.168.2.137:1060/preview/{picture}'
-            download = f"192.168.2.137:1060/download/{picture}/{ident}/{parts2[3]}_\
+            preview = f'http://localhost:1060//preview/{picture}'
+            download = f"http://localhost:1060//download/{picture}/{ident}/{parts2[3]}_\
 {parts1[5]}_{parts3[7]}_{parts2[7]}/{parts1[5]}_{parts1[2]}"
 
 
@@ -101,6 +88,23 @@ class PictureFabric:
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
         headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
         response = Response(resp.content, resp.status_code, headers)
+
+        photo = response.data
+
+        gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
+        ds = gdal.Open('/vsimem/inmem.jp2')
+
+        warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
+        warp = None
+
+        ds1 = gdal.Translate(f'{uuid}.tif', '/vsimem/inmem_3857.jp2')
+        print(ds1.GetMetadata())
+        ds = None
+        ds1 = None
+
+        gdal.Unlink('/vsimem/inmem.jp2')
+        gdal.Unlink('/vsimem/inmem_3857.jp2')
+
         return response
 
     def get_preview(self, uuid):
