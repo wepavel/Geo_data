@@ -1,8 +1,20 @@
 from sentinelsat.sentinel import SentinelAPI
 import geopandas as gpd
-from flask import Flask, request, redirect, Response
+from flask import Response
 import os
 from osgeo import gdal
+
+
+def check_dir(cur_directory, uuid):
+    if not os.path.exists(f'{cur_directory}/images/'):
+        os.makedirs(f'{cur_directory}/images/')
+    if not os.path.exists(f'{cur_directory}/images/{uuid}/'):
+        os.makedirs(f'{cur_directory}/images/{uuid}/')
+    aaa = not os.listdir(f'{cur_directory}/images/{uuid}//')
+    if not os.listdir(f'{cur_directory}/images/{uuid}//'):
+        return False
+    else:
+        return True
 
 
 class PictureModel:
@@ -34,17 +46,15 @@ class PictureFabric:
         user = 'wepaul'
         password = 'Sporopedu123'
         self.api = SentinelAPI(user, password, 'https://scihub.copernicus.eu/dhus')
+        self.cur_dir = os.getcwd()
 
     def get_pictures(self, **kwargs: object) -> list[PictureModel]:
-
-        # boundary = gpd.read_file(Json_dir)
 
         boundary = gpd.GeoDataFrame.from_features(kwargs["features"])
         footprint = None
         for i in boundary['geometry']:
             footprint = i
 
-        # print(kwargs['features'][0]['properties']['date'])
         date = kwargs['features'][0]['properties']['date']
         clouds = kwargs['features'][0]['properties']['cloud']
         products = self.api.query(footprint,
@@ -69,9 +79,6 @@ class PictureFabric:
             download = f"http://localhost:1060//download/{picture}/{ident}/{parts2[3]}_\
 {parts1[5]}_{parts3[7]}_{parts2[7]}/{parts1[5]}_{parts1[2]}"
 
-
-            # result = [products[picture]['generationdate'], products[picture]['title'],
-            #           picture, preview, download]
             pictures.append(
                 PictureModel(date=products[picture]['generationdate'], name=products[picture]['title'],
                              uuid=picture, prev=preview, download=download)
@@ -80,32 +87,38 @@ class PictureFabric:
 
     def down_url(self, uuid, ident, some_ident, img_ident):
 
-        path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
+        if not check_dir(self.cur_dir, uuid):
+
+            path1 = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
+/Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/Nodes"
+            resp = self.api.session.get(f'{path1}')
+
+            path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
 /Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/$value"
 
-        resp = self.api.session.get(f'{path}')
+            resp = self.api.session.get(f'{path}')
 
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
-        headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
-        response = Response(resp.content, resp.status_code, headers)
 
-        photo = response.data
 
-        gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
-        ds = gdal.Open('/vsimem/inmem.jp2')
+            photo = resp.content
 
-        warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
-        warp = None
+            gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
+            ds = gdal.Open('/vsimem/inmem.jp2')
 
-        ds1 = gdal.Translate(f'{uuid}.tif', '/vsimem/inmem_3857.jp2')
-        print(ds1.GetMetadata())
-        ds = None
-        ds1 = None
+            warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
 
-        gdal.Unlink('/vsimem/inmem.jp2')
-        gdal.Unlink('/vsimem/inmem_3857.jp2')
+            ds1 = gdal.Translate(f'{self.cur_dir}/images/{uuid}/{uuid}.tif', '/vsimem/inmem_3857.jp2')
 
-        return response
+            ds = None
+            ds1 = None
+            warp = None
+            gdal.Unlink('/vsimem/inmem.jp2')
+            gdal.Unlink('/vsimem/inmem_3857.jp2')
+
+        im_path = f'{self.cur_dir}/images'
+        im_name = f'{uuid}/{uuid}.tif'
+
+        return im_path, im_name
 
     def get_preview(self, uuid):
 

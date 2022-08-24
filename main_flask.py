@@ -1,4 +1,4 @@
-from flask import Flask, request, redirect, Response
+from flask import Flask, request, send_from_directory
 import requests
 from sentinelsat.sentinel import SentinelAPI
 import flask
@@ -37,9 +37,9 @@ def prev_proxy(uuid):
 def download_proxy(uuid, ident, some_ident, img_ident):
     print(uuid, ident, some_ident, img_ident)
 
-    url = PictureFabric().down_url(uuid, ident, some_ident, img_ident)
+    dir, name = PictureFabric().down_url(uuid, ident, some_ident, img_ident)
 
-    return url
+    return send_from_directory(dir, name, as_attachment=True)
 
 @app.post('/regions')
 def check_regions():
