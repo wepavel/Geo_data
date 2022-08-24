@@ -1,6 +1,6 @@
 from sentinelsat.sentinel import SentinelAPI
 import geopandas as gpd
-from flask import Response
+from flask import Response, send_from_directory
 import os
 from osgeo import gdal
 
@@ -8,13 +8,13 @@ from osgeo import gdal
 def check_dir(cur_directory, uuid):
     if not os.path.exists(f'{cur_directory}/images/'):
         os.makedirs(f'{cur_directory}/images/')
-    if not os.path.exists(f'{cur_directory}/images/{uuid}/'):
-        os.makedirs(f'{cur_directory}/images/{uuid}/')
-    aaa = not os.listdir(f'{cur_directory}/images/{uuid}//')
-    if not os.listdir(f'{cur_directory}/images/{uuid}//'):
-        return False
+    if os.path.isdir(f'{cur_directory}/images/{uuid}'):
+        if not os.listdir(f'{cur_directory}/images/{uuid}//'):
+            return False
+        else:
+            return True
     else:
-        return True
+        return False
 
 
 class PictureModel:
@@ -75,50 +75,21 @@ class PictureFabric:
             parts2[7] = parts2[7].replace(parts2[7][0], '')
             parts3 = granule.split('_')
 
-            preview = f'http://localhost:1060//preview/{picture}'
-            download = f"http://localhost:1060//download/{picture}/{ident}/{parts2[3]}_\
+            resp_path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{picture}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
+/Nodes('{parts2[3]}_{parts1[5]}_{parts3[7]}_{parts2[7]}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{parts1[5]}_{parts1[2]}_TCI_10m.jp2')/Nodes"
+
+            img_resp = self.api.session.get(resp_path)
+
+            if img_resp.status_code == 200:
+                preview = f'http://localhost:1060//preview/{picture}'
+                download = f"http://localhost:1060//download/{picture}/{ident}/{parts2[3]}_\
 {parts1[5]}_{parts3[7]}_{parts2[7]}/{parts1[5]}_{parts1[2]}"
 
-            pictures.append(
-                PictureModel(date=products[picture]['generationdate'], name=products[picture]['title'],
-                             uuid=picture, prev=preview, download=download)
-            )
+                pictures.append(
+                    PictureModel(date=products[picture]['generationdate'], name=products[picture]['title'],
+                                 uuid=picture, prev=preview, download=download)
+                )
         return pictures
-
-    def down_url(self, uuid, ident, some_ident, img_ident):
-
-        if not check_dir(self.cur_dir, uuid):
-
-            path1 = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
-/Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/Nodes"
-            resp = self.api.session.get(f'{path1}')
-
-            path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
-/Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/$value"
-
-            resp = self.api.session.get(f'{path}')
-
-
-
-            photo = resp.content
-
-            gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
-            ds = gdal.Open('/vsimem/inmem.jp2')
-
-            warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
-
-            ds1 = gdal.Translate(f'{self.cur_dir}/images/{uuid}/{uuid}.tif', '/vsimem/inmem_3857.jp2')
-
-            ds = None
-            ds1 = None
-            warp = None
-            gdal.Unlink('/vsimem/inmem.jp2')
-            gdal.Unlink('/vsimem/inmem_3857.jp2')
-
-        im_path = f'{self.cur_dir}/images'
-        im_name = f'{uuid}/{uuid}.tif'
-
-        return im_path, im_name
 
     def get_preview(self, uuid):
 
@@ -131,22 +102,39 @@ class PictureFabric:
         response = Response(resp.content, resp.status_code, headers)
         return response
 
-    def create_picture(self, **kwargs) -> PictureModel:
-        pass
+    def get_picture(self, uuid, ident, some_ident, img_ident):
 
-    # def in_polygon(request):
-    #     if request.method == 'POST':
-    #         data = json.loads(request.body)
-    #         in_polygon = False
-    #
-    #         # Main algorithms
-    #         x = data['point'][0]
-    #         y = data['point'][1]
-    #         for i in range(len(data['polygon'])):
-    #             xp = data['polygon'][i][0]
-    #             yp = data['polygon'][i][1]
-    #             xp_prev = data['polygon'][i - 1][0]
-    #             yp_prev = data['polygon'][i - 1][1]
-    #             if (((yp <= y and y < yp_prev) or (yp_prev <= y and y < yp)) and (
-    #                     x > (xp_prev - xp) * (y - yp) / (yp_prev - yp) + xp)):
-    #                 in_polygon = not in_polygon
+        if not check_dir(self.cur_dir, uuid):
+
+            path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
+/Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/$value"
+
+            resp = self.api.session.get(f'{path}')
+            if resp.status_code == 200:
+                if not os.path.exists(f'{self.cur_dir}/images/{uuid}/'):
+                    os.makedirs(f'{self.cur_dir}/images/{uuid}/')
+
+                photo = resp.content
+
+                gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
+                ds = gdal.Open('/vsimem/inmem.jp2')
+
+                warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
+
+                ds1 = gdal.Translate(f'{self.cur_dir}/images/{uuid}/{uuid}.tif', '/vsimem/inmem_3857.jp2')
+
+                ds1 = None
+                warp = None
+                ds = None
+
+                gdal.Unlink('/vsimem/inmem.jp2')
+                gdal.Unlink('/vsimem/inmem_3857.jp2')
+            else:
+                return 'Error with downloading picture'
+
+        im_path = f'{self.cur_dir}/images'
+        im_name = f'{uuid}/{uuid}.tif'
+
+        return send_from_directory(im_path, im_name, as_attachment=True)
+
+

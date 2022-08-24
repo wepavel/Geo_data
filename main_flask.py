@@ -2,19 +2,10 @@ from flask import Flask, request, send_from_directory
 import requests
 from sentinelsat.sentinel import SentinelAPI
 import flask
-import os
-import pickle
+
 
 from model import PictureFabric
-# import geopandas as gpd
 
-
-import osgeo
-from osgeo import gdal, gdal_array
-
-import io
-
-import sys
 
 app = Flask(__name__)
 
@@ -37,9 +28,10 @@ def prev_proxy(uuid):
 def download_proxy(uuid, ident, some_ident, img_ident):
     print(uuid, ident, some_ident, img_ident)
 
-    dir, name = PictureFabric().down_url(uuid, ident, some_ident, img_ident)
+    someobject = PictureFabric().get_picture(uuid, ident, some_ident, img_ident)
 
-    return send_from_directory(dir, name, as_attachment=True)
+    return someobject
+
 
 @app.post('/regions')
 def check_regions():
