@@ -1,6 +1,6 @@
 from sentinelsat.sentinel import SentinelAPI
 import geopandas as gpd
-from flask import Response, send_from_directory
+from flask import Response, send_from_directory, send_file
 import os
 from osgeo import gdal
 
@@ -122,13 +122,31 @@ class PictureFabric:
                 warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
 
                 ds1 = gdal.Translate(f'{self.cur_dir}/images/{uuid}/{uuid}.tif', '/vsimem/inmem_3857.jp2')
+                ds2 = gdal.Translate(f'/vsimem/{uuid}.tif', '/vsimem/inmem_3857.jp2')
+
+                f = gdal.VSIFOpenL(f'/vsimem/{uuid}.tif', 'rb')
+                gdal.VSIFSeekL(f, 0, 2)  # seek to end
+                size = gdal.VSIFTellL(f)
+                gdal.VSIFSeekL(f, 0, 0)  # seek to beginning
+                data = bytes(gdal.VSIFReadL(1, size, f))
+                gdal.VSIFCloseL(f)
+
+
 
                 ds1 = None
+                ds2 = None
                 warp = None
                 ds = None
 
                 gdal.Unlink('/vsimem/inmem.jp2')
                 gdal.Unlink('/vsimem/inmem_3857.jp2')
+                gdal.Unlink(f'/vsimem/{uuid}.tif')
+
+                resp = Response(data, mimetype='image/tif')
+                # resp.headers['filename'] = f'{uuid}.tif'
+                resp.headers['Content-Disposition'] = f'attachment; filename={uuid}.tif'
+                return resp
+                # return send_file(data, mimetype='image/tif', download_name=f'{uuid}.tif', as_attachment=True)
             else:
                 return 'Error with downloading picture'
 
