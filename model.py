@@ -1,6 +1,6 @@
 from sentinelsat.sentinel import SentinelAPI
 import geopandas as gpd
-from flask import Response, send_from_directory, send_file
+from flask import Response
 import os
 from osgeo import gdal
 
