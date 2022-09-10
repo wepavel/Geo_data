@@ -5,18 +5,6 @@ import os
 from osgeo import gdal
 
 
-def check_dir(cur_directory, uuid):
-    if not os.path.exists(f'{cur_directory}/images/'):
-        os.makedirs(f'{cur_directory}/images/')
-    if os.path.isdir(f'{cur_directory}/images/{uuid}'):
-        if not os.listdir(f'{cur_directory}/images/{uuid}//'):
-            return False
-        else:
-            return True
-    else:
-        return False
-
-
 class PictureModel:
     """."""
 
@@ -104,55 +92,39 @@ class PictureFabric:
 
     def get_picture(self, uuid, ident, some_ident, img_ident):
 
-        if not check_dir(self.cur_dir, uuid):
-
-            path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
+        path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
 /Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/$value"
 
-            resp = self.api.session.get(f'{path}')
-            if resp.status_code == 200:
-                if not os.path.exists(f'{self.cur_dir}/images/{uuid}/'):
-                    os.makedirs(f'{self.cur_dir}/images/{uuid}/')
+        resp = self.api.session.get(path)
+        if resp.status_code == 200:
 
-                photo = resp.content
+            photo = resp.content
 
-                gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
-                ds = gdal.Open('/vsimem/inmem.jp2')
+            gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
+            ds = gdal.Open('/vsimem/inmem.jp2')
 
-                warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
+            warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
 
-                ds1 = gdal.Translate(f'{self.cur_dir}/images/{uuid}/{uuid}.tif', '/vsimem/inmem_3857.jp2')
-                ds2 = gdal.Translate(f'/vsimem/{uuid}.tif', '/vsimem/inmem_3857.jp2')
+            ds1 = gdal.Translate(f'/vsimem/{uuid}.tif', '/vsimem/inmem_3857.jp2')
 
-                f = gdal.VSIFOpenL(f'/vsimem/{uuid}.tif', 'rb')
-                gdal.VSIFSeekL(f, 0, 2)  # seek to end
-                size = gdal.VSIFTellL(f)
-                gdal.VSIFSeekL(f, 0, 0)  # seek to beginning
-                data = bytes(gdal.VSIFReadL(1, size, f))
-                gdal.VSIFCloseL(f)
+            f = gdal.VSIFOpenL(f'/vsimem/{uuid}.tif', 'rb')
+            gdal.VSIFSeekL(f, 0, 2)  # поиск конца
+            size = gdal.VSIFTellL(f)
+            gdal.VSIFSeekL(f, 0, 0)  # поиск начала
+            data = bytes(gdal.VSIFReadL(1, size, f))
+            gdal.VSIFCloseL(f)
 
+            ds1 = None
+            warp = None
+            ds = None
 
+            gdal.Unlink('/vsimem/inmem.jp2')
+            gdal.Unlink('/vsimem/inmem_3857.jp2')
+            gdal.Unlink(f'/vsimem/{uuid}.tif')
 
-                ds1 = None
-                ds2 = None
-                warp = None
-                ds = None
+            resp = Response(data, mimetype='image/tif')
 
-                gdal.Unlink('/vsimem/inmem.jp2')
-                gdal.Unlink('/vsimem/inmem_3857.jp2')
-                gdal.Unlink(f'/vsimem/{uuid}.tif')
-
-                resp = Response(data, mimetype='image/tif')
-                # resp.headers['filename'] = f'{uuid}.tif'
-                resp.headers['Content-Disposition'] = f'attachment; filename={uuid}.tif'
-                return resp
-                # return send_file(data, mimetype='image/tif', download_name=f'{uuid}.tif', as_attachment=True)
-            else:
-                return 'Error with downloading picture'
-
-        im_path = f'{self.cur_dir}/images'
-        im_name = f'{uuid}/{uuid}.tif'
-
-        return send_from_directory(im_path, im_name, as_attachment=True)
-
-
+            resp.headers['Content-Disposition'] = f'attachment; filename={uuid}.tif'
+            return resp
+        else:
+            return 'Error with downloading picture'
