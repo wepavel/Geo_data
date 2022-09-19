@@ -3,6 +3,19 @@ import geopandas as gpd
 from flask import Response
 import os
 from osgeo import gdal
+import configparser
+import numpy as np
+
+
+def read_ini(file_path):
+    config = configparser.ConfigParser()
+    config.read(file_path)
+    conf_dict = {}
+    for section in config.sections():
+        for key in config[section]:
+            conf_dict[key] = config[section][key]
+            print((key, config[section][key]))
+    return conf_dict
 
 
 class PictureModel:
@@ -31,10 +44,17 @@ class PictureFabric:
 
     def __init__(self):
         """."""
-        user = 'wepaul'
-        password = 'Sporopedu123'
-        self.api = SentinelAPI(user, password, 'https://scihub.copernicus.eu/dhus')
+
         self.cur_dir = os.getcwd()
+        path = self.cur_dir + '/conf.ini'
+        print(path)
+        config = read_ini(self.cur_dir + '/conf.ini')
+        print(config)
+        user = config['username']
+        password = config['password']
+        self.path = config['download_path']
+        self.prev_path = config['preview_path']
+        self.api = SentinelAPI(user, password, 'https://scihub.copernicus.eu/dhus')
 
     def get_pictures(self, **kwargs: object) -> list[PictureModel]:
 
@@ -63,8 +83,12 @@ class PictureFabric:
             parts2[7] = parts2[7].replace(parts2[7][0], '')
             parts3 = granule.split('_')
 
-            resp_path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{picture}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
-/Nodes('{parts2[3]}_{parts1[5]}_{parts3[7]}_{parts2[7]}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{parts1[5]}_{parts1[2]}_TCI_10m.jp2')/Nodes"
+            uuid = picture
+            some_ident = f'{parts2[3]}_{parts1[5]}_{parts3[7]}_{parts2[7]}'
+            img_ident = f'{parts1[5]}_{parts1[2]}'
+
+            resp_path = eval(f'f"""{self.path}"""')
+            resp_path = resp_path + 'Nodes'
 
             img_resp = self.api.session.get(resp_path)
 
@@ -81,8 +105,7 @@ class PictureFabric:
 
     def get_preview(self, uuid):
 
-        path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Products('Quicklook')/$value"
-
+        path = eval(f'f"""{self.prev_path}"""')
         resp = self.api.session.get(path)
 
         excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
@@ -92,34 +115,36 @@ class PictureFabric:
 
     def get_picture(self, uuid, ident, some_ident, img_ident):
 
-        path = f"https://scihub.copernicus.eu/dhus/odata/v1/Products('{uuid}')/Nodes('{ident}.SAFE')/Nodes('GRANULE')\
-/Nodes('{some_ident}')/Nodes('IMG_DATA')/Nodes('R10m')/Nodes('{img_ident}_TCI_10m.jp2')/$value"
+        path = eval(f'f"""{self.path}"""')
+        path = path + '$value'
 
         resp = self.api.session.get(path)
         if resp.status_code == 200:
 
             photo = resp.content
 
-            gdal.FileFromMemBuffer('/vsimem/inmem.jp2', photo)
-            ds = gdal.Open('/vsimem/inmem.jp2')
+            gdal.FileFromMemBuffer(f'/vsimem/{uuid}.jp2', photo)
+            ds = gdal.Open(f'/vsimem/{uuid}.jp2', gdal.GA_Update)
 
-            warp = gdal.Warp('/vsimem/inmem_3857.jp2', ds, dstSRS='EPSG:3857', outputType=gdal.gdalconst.GDT_Byte)
+            ds1 = gdal.Translate(f'/vsimem/{uuid}.tif', f'/vsimem/{uuid}.jp2')
+            gdal.Unlink(f'/vsimem/{uuid}.jp2')
+            ds = None
 
-            ds1 = gdal.Translate(f'/vsimem/{uuid}.tif', '/vsimem/inmem_3857.jp2')
+            warp = gdal.Warp(f'/vsimem/{uuid}.tif', ds1, dstAlpha=True, dstSRS='EPSG:3857',
+                             outputType=gdal.gdalconst.GDT_Byte)
+            ds1 = None
 
             f = gdal.VSIFOpenL(f'/vsimem/{uuid}.tif', 'rb')
+
             gdal.VSIFSeekL(f, 0, 2)  # поиск конца
             size = gdal.VSIFTellL(f)
             gdal.VSIFSeekL(f, 0, 0)  # поиск начала
             data = bytes(gdal.VSIFReadL(1, size, f))
             gdal.VSIFCloseL(f)
 
-            ds1 = None
             warp = None
-            ds = None
+            f = None
 
-            gdal.Unlink('/vsimem/inmem.jp2')
-            gdal.Unlink('/vsimem/inmem_3857.jp2')
             gdal.Unlink(f'/vsimem/{uuid}.tif')
 
             resp = Response(data, mimetype='image/tif')
