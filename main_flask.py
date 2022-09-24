@@ -1,9 +1,10 @@
-from flask import Flask, request, send_from_directory
-import requests
-from sentinelsat.sentinel import SentinelAPI
+# pylint: disable=missing-module-docstring
+# pylint: disable=missing-class-docstring
+# pylint: disable=missing-function-docstring
+from flask import Flask, request
 import flask
 
-from model import PictureFabric
+from model import ImageFabric
 
 app = Flask(__name__)
 
@@ -13,28 +14,31 @@ def index():
     return 'Flask is running!'
 
 
-@app.route('/preview/<path:uuid>', methods=['GET'])
+@app.get('/preview/<path:uuid>')
 def prev_proxy(uuid):
+    """Get preview of chosen image"""
     if request.method == 'GET':
-        response = PictureFabric().get_preview(uuid)
+        prev_resp = ImageFabric().get_preview(uuid)
 
-        return response
+        return prev_resp
 
 
-@app.route('/download/<path:uuid>/<path:ident>/<path:some_ident>/<path:img_ident>', methods=['GET'])
+@app.get('/download/<path:uuid>/<path:ident>/<path:some_ident>/<path:img_ident>')
 def download_proxy(uuid, ident, some_ident, img_ident):
+    """Download image in .tif in EPSG:3857 projection"""
     print(uuid, ident, some_ident, img_ident)
 
-    someobject = PictureFabric().get_picture(uuid, ident, some_ident, img_ident)
+    img_resp = ImageFabric().get_image(uuid, ident, some_ident, img_ident)
 
-    return someobject
+    return img_resp
 
 
 @app.post('/regions')
 def check_regions():
-    pictures = PictureFabric().get_pictures(**flask.request.json)
+    """Check for available images in region"""
+    img_models = ImageFabric().get_images(**flask.request.json)
 
-    return flask.jsonify([picture.to_dict() for picture in pictures])
+    return flask.jsonify([image.to_dict() for image in img_models])
 
 
 if __name__ == '__main__':
