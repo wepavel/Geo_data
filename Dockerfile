@@ -1,30 +1,13 @@
-FROM perrygeo/gdal-base:latest as builder
+FROM osgeo/gdal:ubuntu-small-latest
 
-COPY requirements.txt .
-RUN python -m pip install --no-binary fiona,shapely -r requirements.txt
-RUN python -m pip install -r requirements.txt
+COPY requirements.txt \
+     scripts \
+     ./app/
 
-FROM python:3.9-slim-buster as final
+RUN apt update -y && apt -y install python3-pip
 
-RUN apt-get update \
-    && apt-get install --yes --no-install-recommends \
-        libfreexl1 libxml2 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /usr/local /usr/local
-RUN ldconfig
-
-RUN mkdir /app
-COPY . /app/
-
-#
-##RUN python3.9 -m pip install --no-binary fiona,rasterio,shapely -r /app/requirements.txt
-##
-#RUN #python3.9 -m pip install -r /app/requirements.txt
-##
-
-
+RUN pip3 install -r /app/requirements.txt
 
 WORKDIR "/app"
-#
-CMD ["python3.9", "/app/main_flask.py"]
+
+CMD ["python3.10", "/app/main_flask.py"]
