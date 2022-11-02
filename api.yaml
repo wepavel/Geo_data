@@ -1,0 +1,209 @@
+openapi: 3.0.3
+info:
+  title: GEO_data GDAL
+  version: 0.0.1
+  
+servers:
+  - url: http://localhost:1060/api/v1/
+    description: Dev server
+paths:
+  /regions:
+    post:
+      summary: Метод получения списка доступных снимков
+      tags:
+        - Regions
+      operationId: checkRegions
+      requestBody:
+        description: Метод получения списка доступных снимков
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Img_req'
+        required: true
+      responses: 
+        '200':
+          description: Успешный ответ со списком снимков
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Images'
+        'default':
+          description: Любая ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /prewiev/{uuid}:
+    get:
+      summary: Получение превью требуемого снимка по preview_url из response от /regions
+      tags:
+        - Preview
+      operationId: getPrevByUuid
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Айди снимка
+          schema:
+            type: string
+            example: 66eb8ec2-b947-4bf1-8506-08b999bd771a
+      responses:
+        '200':
+          description: Успешный ответ с превью снимка
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        'default':
+          description: Любая ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /download/{uuid}/{ident}/{path_1}/{path_2}:
+    get:
+      summary: Получение превью требуемого снимка по download_url из response от /regions
+      tags:
+        - Download
+      operationId: getImg
+      parameters:
+        - name: uuid
+          in: path
+          required: true
+          description: Айди снимка
+          schema:
+            type: string
+            example: 66eb8ec2-b947-4bf1-8506-08b999bd771a
+        - name: ident
+          in: path
+          required: true
+          description: Идентификатор снимка
+          schema:
+            type: string
+            example: S2A_MSIL2A_20220630T083611_N0400_R064_T36UXF_20220630T131415
+        - name: path_1
+          in: path
+          required: true
+          description: Первая часть пути к снимку
+          schema:
+            type: string
+            example: L2A_T36UXF_A036669_20220630T083613
+        - name: path_2
+          in: path
+          required: true
+          description: Вторая часть пути к снимку
+          schema:
+            type: string
+            example: T36UXF_20220630T083611
+      responses:
+        '200':
+          description: Успешный ответ с превью снимка
+          content:
+            image/tif:
+              schema:
+                type: string
+                format: binary
+        'default':
+          description: Любая ошибка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'      
+          
+      
+            
+components:
+  schemas:
+    Img_req:
+      type: object
+      required:
+        - type
+        - features
+      properties:
+        type:
+          type: string
+          example: FeatureCollection
+        features:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                example: Feature
+              properties:
+                type: object
+                properties:
+                  cloud:
+                    type: array
+                    items: 
+                      type: integer
+                    example: [0,20]
+                  date:
+                    type: array
+                    items:
+                      type: string
+                    example: ["20220109", "20220710"]
+              geometry:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: Polygon
+                  coordinates:
+                    type: array
+                    items:
+                      type: number
+                    example:
+                      [[[36.22913360595703,
+                         54.494371163405575],
+                        [36.29951477050781,
+                         54.494371163405575],
+                        [36.29951477050781,
+                         54.53363330399915],
+                        [36.22913360595703,
+                         54.53363330399915],
+                        [36.22913360595703,
+                         54.494371163405575]]]
+    Images:
+      type: array
+      items:
+        type: object
+      
+        required:
+          - date
+          - name
+          - uuid
+          - preview_url
+          - download_url
+        properties:
+          date:
+            type: string
+            example: Thu, 30 Jun 2022 13:14:15 GMT
+          download_url:
+            type: string
+            example: http://localhost:1060//download/66eb8ec2-b947-4bf1-8506-08b999bd771a/S2A_MSIL2A_20220630T083611_N0400_R064_T36UXF_20220630T131415/L2A_T36UXF_A036669_20220630T083613/T36UXF_20220630T083611
+          name:
+            type: string
+            example: S2A_MSIL2A_20220630T083611_N0400_R064_T36UXF_20220630T131415
+          preview_url:
+            type: string
+            example: http://localhost:1060//preview/66eb8ec2-b947-4bf1-8506-08b999bd771a
+          uuid:
+            type: string
+            example: 66eb8ec2-b947-4bf1-8506-08b999bd771a
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+      
+    
+    
+  
